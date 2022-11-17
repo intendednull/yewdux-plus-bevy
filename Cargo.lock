@@ -4046,6 +4046,7 @@ dependencies = [
  "async-std",
  "bevy",
  "bevy_rapier3d",
+ "gloo-timers",
  "yew",
  "yewdux",
 ]

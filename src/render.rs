@@ -1,29 +1,82 @@
 use async_std::channel::Receiver;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use gloo_timers::callback::Timeout;
+use yew::prelude::*;
 
 use crate::state::State;
 
-pub const CANVAS_ID: &str = "engine-canvas";
+pub enum Msg {
+    RenderFrame,
+}
 
-pub fn start(receiver: Receiver<State>) {
-    App::new()
-        .insert_resource(WindowDescriptor {
-            canvas: Some(format!("#{}", CANVAS_ID)),
-            height: 800.,
-            width: 800.,
-            resizable: true,
-            ..Default::default()
-        })
-        .insert_resource(Msaa { samples: 4 })
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .insert_resource(receiver)
-        .insert_resource(State::default())
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(update_state)
-        .add_system(update_blocks.after(update_state))
-        .run();
+pub struct Render {
+    app: Option<App>,
+    task: Option<Timeout>,
+}
+
+impl yew::prelude::Component for Render {
+    type Message = Msg;
+    type Properties = ();
+
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {
+            app: None,
+            task: None,
+        }
+    }
+
+    fn rendered(&mut self, ctx: &Context<Self>, first_render: bool) {
+        if first_render {
+            let receiver = crate::state::init_channel();
+            self.app = create_app(receiver).into();
+            ctx.link().send_message(Msg::RenderFrame);
+        }
+    }
+
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        match msg {
+            Msg::RenderFrame => {
+                let callback = ctx.link().callback(|_| Msg::RenderFrame);
+                let fps = 60;
+
+                self.app.as_mut().unwrap().update();
+                self.task = Timeout::new(1_000 / fps, move || callback.emit(())).into();
+
+                false
+            }
+        }
+    }
+
+    fn view(&self, _ctx: &Context<Self>) -> Html {
+        html! {
+            <canvas id={CANVAS_ID} />
+        }
+    }
+}
+
+pub const CANVAS_ID: &str = "bevy-render-canvas";
+
+fn create_app(receiver: Receiver<State>) -> App {
+    let mut app = App::new();
+
+    app.insert_resource(WindowDescriptor {
+        canvas: Some(format!("#{}", CANVAS_ID)),
+        height: 800.,
+        width: 800.,
+        resizable: true,
+        ..Default::default()
+    })
+    .insert_resource(Msaa { samples: 4 })
+    .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+    .insert_resource(receiver)
+    .insert_resource(State::default())
+    .add_plugins(DefaultPlugins)
+    .add_startup_system(setup)
+    .add_system(update_state)
+    .add_system(update_blocks.after(update_state));
+
+    app
 }
 
 fn setup(

@@ -9,6 +9,7 @@ resolver = "2"
 async-std = "1.12.0"
 bevy = "0.8.0"
 bevy_rapier3d = "0.16.0"
+gloo-timers = "0.2.4"
 yew = { git = "https://github.com/yewstack/yew.git", features = ["csr"] }
 yewdux = { git = "https://github.com/intendednull/yewdux.git" }
 
